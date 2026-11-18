@@ -1,0 +1,12 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<0.34
+sqlalchemy>=2.0,<3
+psycopg[binary]>=3.2,<4
+pgvector>=0.3.6,<1
+alembic>=1.14,<2
+pydantic[email]>=2.10,<3
+python-dotenv>=1.0,<2
+python-multipart>=0.0.20,<1
+httpx>=0.28,<1
+typing_extensions>=4.12
+eval-type-backport>=0.2,<0.3
