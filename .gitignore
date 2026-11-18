@@ -1,0 +1,14 @@
+.next/
+node_modules/
+.venv/
+browser-reader-mcp/
+__pycache__/
+*.py[cod]
+*.db
+.env
+.env.local
+!.env.example
+*.tsbuildinfo
+Projet_IAG_p3_26_27.pdf
+dist/
+coverage/

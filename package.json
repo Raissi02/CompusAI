@@ -1,0 +1,29 @@
+{
+  "name": "smartcampus-ai",
+  "version": "0.1.0",
+  "private": true,
+  "overrides": {
+    "next": {
+      "postcss": "8.5.33"
+    }
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/themes": "^3.2.1",
+    "next": "^15.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.5.33",
+    "typescript": "^5.8.2"
+  }
+}
