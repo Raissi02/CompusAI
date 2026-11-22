@@ -12,49 +12,52 @@ from app.rag import answer_with_sources, search_documents
 
 CASES = [
     {
-        "id": "french-iit",
+        "id": "french-iit-prepa",
         "language": "fr",
+        "fallback": "fr",
         "institution": "IIT",
-        "expected_source": "Project brief: SmartCampus AI",
-        "question": "Je veux comparer les parcours de Licence et d'ingénierie à l'IIT.",
+        "expected_source": "IIT — Cycle préparatoire",
+        "question": "Quels sont les prérequis et les frais du cycle préparatoire à l'IIT ?",
     },
     {
-        "id": "tunisian-arabic-script-isb",
-        "language": "Tunisian Arabic / Arabic script",
-        "institution": "ISB",
-        "expected_source": "Project brief: ISB programme coverage",
-        "question": "شنية المعلومات الرسمية على برامج ISB؟",
-    },
-    {
-        "id": "arabizi-isb",
-        "language": "Arabizi",
-        "institution": "ISB",
-        "expected_source": "Project brief: ISB programme coverage",
-        "question": "nheb naaref les programmes ISB w chnowa les infos officielles",
-    },
-    {
-        "id": "arabizi-iit",
-        "language": "Arabizi",
-        "institution": "IIT",
-        "expected_source": "Project brief: SmartCampus AI",
-        "question": "n7eb naaref parcours Licence w engineering mta3 IIT",
-    },
-    {
-        "id": "tunisian-arabic-script-iit",
-        "language": "Tunisian Arabic / Arabic script",
-        "institution": "IIT",
-        "expected_source": "Project brief: SmartCampus AI",
-        "question": "شنية مسارات Licence والهندسة في IIT؟",
-    },
-    {
-        "id": "french-human-review",
+        "id": "french-iit-admission",
         "language": "fr",
+        "fallback": "fr",
         "institution": "IIT",
-        "expected_source": "Project brief: human review requirements",
-        "question": (
-            "Un academic adviser vérifie la recommandation d’orientation IIT avant "
-            "une décision officielle d’admission."
-        ),
+        "expected_source": "IIT — Procédure d'admission et entretien",
+        "question": "Comment se déroule l'admission à l'IIT et quels documents faut-il ?",
+    },
+    {
+        "id": "french-iit-fees",
+        "language": "fr",
+        "fallback": "fr",
+        "institution": "IIT",
+        "expected_source": "IIT — Frais de scolarité, paiement et remboursement",
+        "question": "Combien coûte une année en génie informatique pour un étudiant tunisien ?",
+    },
+    {
+        "id": "french-iit-scholarships",
+        "language": "fr",
+        "fallback": "fr",
+        "institution": "IIT",
+        "expected_source": "IIT — Bourses et aides financières",
+        "question": "Existe-t-il des bourses à l'IIT et comment les demander ?",
+    },
+    {
+        "id": "english-isb-licences",
+        "language": "en",
+        "fallback": "en",
+        "institution": "ISB",
+        "expected_source": "ISB — Licences et conditions d'admission",
+        "question": "What are the admission requirements and duration of the Business Administration licence?",
+    },
+    {
+        "id": "english-isb-masters",
+        "language": "en",
+        "fallback": "en",
+        "institution": "ISB",
+        "expected_source": "ISB — Masters, MBA et admission",
+        "question": "Which master programmes does ISB offer?",
     },
 ]
 
@@ -63,7 +66,7 @@ async def evaluate_language_and_retrieval(db: Session) -> dict[str, Any]:
     results = []
     for case in CASES:
         started = time.perf_counter()
-        detected = detect_language(case["question"], "fr")
+        detected = detect_language(case["question"], case.get("fallback", "fr"))
         sources = await search_documents(db, case["question"])
         relevant = any(source.institution == case["institution"] for source in sources)
         expected_source_retrieved = any(

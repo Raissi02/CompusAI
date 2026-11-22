@@ -13,7 +13,7 @@ A standalone, demo-ready university-orientation and admissions workflow based on
 - In-app notification records, optional SMTP delivery, live database statistics, document indexing, and an admin-triggered language/retrieval evaluation suite.
 - PostgreSQL schema migration and a SQLite local-development path.
 
-Official study data, admission decisions, and appointment availability are not invented. The PDF names IIT Licence, Preparatory, and Engineering pathways and ISB programmes, but supplies no official programme descriptions, fees, entry rules, or training/evaluation dataset. The four seeded catalogue entries are visibly marked as sample records and should be replaced before real use. Demo questionnaire completion is not a knowledge or admission score.
+Official study data, admission decisions, and appointment availability are not invented. The seeded catalogue and knowledge sources are transcribed from the public pages of IIT (Institut International de Technologie) and ISB (International School of Business), Sfax, with a `source_url` on every programme and document. Fields the institutions do not publish (IIT application deadlines, total duration of one licence, ISB tuition) are recorded as "to confirm" and must be routed to admissions rather than guessed. The single fee-estimate document is marked `is_sample=true` and is explicitly non-official. Re-check published fees before any demo, and keep demo questionnaire completion separate from any knowledge or admission score.
 
 ## Run locally on Windows
 
@@ -40,7 +40,7 @@ Use Python 3.8+ and Node.js 20+. Run these commands from the workspace root.
 
 3. Open `http://localhost:3000`. Interactive API documentation is at `http://127.0.0.1:8000/docs`.
 
-The default development database is `backend\smartcampus.db`. The app creates its local schema and clearly labeled demonstration programme/source records on startup. A new candidate can register in the app. Development-only staff accounts are seeded when `SEED_DEMO_DATA=true`:
+The default development database is `backend\smartcampus.db`. The app creates its local schema and seeds IIT/ISB programme and knowledge-source records transcribed from the institutions' public pages (plus one clearly labelled non-official fee estimate). A new candidate can register in the app. Development-only staff accounts are seeded when `SEED_DEMO_DATA=true`:
 
 | Role | Email |
 |---|---|
