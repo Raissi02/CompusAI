@@ -1,6 +1,16 @@
 "use client";
 
 import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from "motion/react";
+import Image from "next/image";
+import { Button as ShadcnButton } from "@/components/ui/button";
+import { HeroSpotlight } from "@/components/ui/hero-spotlight";
+import { ScrollStory } from "@/components/ui/scroll-story";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import {
   Badge,
   Button,
   Card,
@@ -16,6 +26,7 @@ import {
   TextArea,
   TextField,
 } from "@radix-ui/themes";
+import { ArrowRight } from "lucide-react";
 import {
   FormEvent,
   ReactNode,
@@ -91,6 +102,23 @@ const statusNames: Record<string, string> = {
   declined: "Declined",
 };
 
+const comparisonFields: { label: string; getValue: (program: Program) => string }[] = [
+  { label: "Institution", getValue: (program) => program.institution },
+  { label: "Level", getValue: (program) => program.level },
+  { label: "Duration", getValue: (program) => program.duration },
+  { label: "Tuition", getValue: (program) => program.tuition },
+  { label: "Prerequisites", getValue: (program) => program.prerequisites },
+  { label: "Subjects", getValue: (program) => program.subjects.join(", ") },
+  { label: "Career outcomes", getValue: (program) => program.careers.join(", ") },
+];
+
+function readShortlist(key: string): number[] {
+  const saved = localStorage.getItem(key);
+  const parsed: unknown = saved ? JSON.parse(saved) : [];
+  if (!Array.isArray(parsed)) throw new Error("Saved programme shortlist has an invalid format.");
+  return parsed.filter((id): id is number => Number.isSafeInteger(id) && id > 0).slice(0, 3);
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
@@ -159,6 +187,7 @@ function AuthScreen({
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const reduceMotion = useReducedMotion();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -182,23 +211,27 @@ function AuthScreen({
     <main className="auth-page" id="main-content">
       <a className="skip-link" href="#auth-form">Skip to sign in</a>
       <section className="auth-copy">
+        <HeroSpotlight />
+        <Image
+          className="auth-campus-photo"
+          src="/students-studying.jpg"
+          alt="Students working through a project together"
+          fill
+          priority
+          sizes="(max-width: 760px) 100vw, 58vw"
+        />
         <a className="brand-lockup" href="/" aria-label="SmartCampus AI home">
           <span className="brand-mark">S</span>
           <span>SmartCampus <b>AI</b></span>
         </a>
         <div className="auth-intro">
-          <Badge color="blue" variant="soft">University orientation</Badge>
-          <Heading size="8" className="auth-heading">A clearer path to your next step.</Heading>
+          <Heading size="8" className="auth-heading"><motion.span initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }} key={mode}>{mode === "login" ? "Find your next step." : "Start with a clear direction."}</motion.span></Heading>
           <Text as="p" size="4" color="gray">
-            Explore study options, talk through your interests, and prepare for a conversation with an admissions adviser.
+            Explore study options, map your interests, and prepare for a conversation with an adviser.
           </Text>
-          <div className="auth-points">
-            <div><span className="point-index">01</span><span>Explore programmes from one place</span></div>
-            <div><span className="point-index">02</span><span>Build an orientation profile as you go</span></div>
-            <div><span className="point-index">03</span><span>Keep academic decisions with people</span></div>
-          </div>
+          <div className="auth-assurance">Admissions decisions stay with your institution.</div>
         </div>
-        <Text size="1" color="gray" className="auth-footnote">Sample programme information is clearly marked and must be replaced with verified IIT and ISB sources.</Text>
+        <Text size="1" color="gray" className="auth-footnote">Sample programme details are marked and should be confirmed with IIT or ISB.</Text>
       </section>
 
       <section className="auth-panel">
@@ -226,9 +259,9 @@ function AuthScreen({
               </div>
             </Field>
             {error && <p className="inline-error" role="alert">{error}</p>}
-            <Button type="submit" size="3" disabled={busy} aria-busy={busy}>
-              {busy ? <Spinner /> : mode === "login" ? "Sign in" : "Create account"}
-            </Button>
+            <ShadcnButton className="auth-submit magic-shimmer-button" type="submit" size="lg" disabled={busy} aria-busy={busy}>
+              {busy ? <Spinner /> : <>{mode === "login" ? "Sign in" : "Create account"} <ArrowRight size={17} aria-hidden="true" /></>}
+            </ShadcnButton>
           </form>
           <div className="auth-mode-switch">
             <Text size="2" color="gray">
@@ -334,7 +367,18 @@ function GuestChat({ onCreateAccount }: { onCreateAccount: () => void }) {
         <section className="guest-chat chat-panel" id="guest-chat">
           <div className="panel-heading"><div><Heading size="4">Orientation conversation</Heading><Text size="2" color="gray">French, Tunisian Arabic, or Arabizi</Text></div><Badge color="gray" variant="soft">Guest session</Badge></div>
           <div className="chat-messages" aria-live="polite">
-            {messages.length === 0 && <div className="chat-welcome"><span className="welcome-monogram">S</span><Heading size="4">What would you like to study?</Heading><Text size="2" color="gray">Tell me what subjects you enjoy or ask about the programmes listed in the source material.</Text></div>}
+            {messages.length === 0 && (
+              <div className="chat-welcome">
+                <span className="welcome-monogram">S</span>
+                <Heading size="4">What would you like to study?</Heading>
+                <Text size="2" color="gray">Tell me what subjects you enjoy or ask about the programmes listed in the source material.</Text>
+                <Flex gap="2" wrap="wrap">
+                  {["I enjoy maths and computing", "What study paths are listed?", "I have questions about admissions"].map((suggestion) => (
+                    <button className="suggestion" key={suggestion} type="button" onClick={() => setDraft(suggestion)}>{suggestion}</button>
+                  ))}
+                </Flex>
+              </div>
+            )}
             {messages.map((message) => <article key={message.id} className={`chat-message ${message.sender}`}><Text size="1" weight="bold">{message.sender === "assistant" ? "SmartCampus guide" : "You"}</Text><Text as="p" size="2">{message.content}</Text>{message.citations?.length > 0 && <div className="citation-list"><Text size="1" weight="bold" color="gray">Sources used</Text>{message.citations.map((citation, index) => <span className="citation" key={`${message.id}-${index}`}>{citation.source_url ? <a href={citation.source_url} target="_blank" rel="noreferrer">{citation.title}</a> : citation.title} / {citation.institution}{citation.is_sample ? " / sample, not official" : ""}</span>)}</div>}</article>)}
             {busy && <div className="typing-state"><Spinner size="1" /><Text size="2" color="gray">Preparing a source-based reply…</Text></div>}
             <div ref={bottomRef} />
@@ -427,31 +471,60 @@ function ProfileForm({
 function ProgramList({
   programs,
   onSelect,
+  shortlistedIds,
+  onToggleShortlist,
   actionLabel = "View programme",
 }: {
   programs: Program[];
   onSelect: (program: Program) => void;
+  shortlistedIds?: number[];
+  onToggleShortlist?: (programId: number) => void;
   actionLabel?: string;
 }) {
+  const reduceMotion = useReducedMotion();
   if (!programs.length) return <div className="empty-state"><Heading size="4">No programmes available</Heading><Text color="gray">Ask an administrator to add verified programme information.</Text></div>;
   return (
     <div className="programme-grid">
-      {programs.map((program) => (
-        <Card className="programme-card" key={program.id}>
-          <Flex justify="between" align="center" gap="2">
-            <Badge color={program.institution === "IIT" ? "blue" : "green"} variant="soft">{program.institution}</Badge>
-            {program.is_sample && <Badge color="amber" variant="soft">Sample</Badge>}
-          </Flex>
-          <Heading size="4">{program.title}</Heading>
-          <Text size="2" color="gray">{program.level}{program.duration ? ` / ${program.duration}` : ""}</Text>
-          <Text size="2" className="programme-summary">{program.summary}</Text>
-          {program.subjects.length > 0 && (
-            <Flex gap="2" wrap="wrap">{program.subjects.map((subject) => <Badge key={subject} color="gray" variant="outline">{subject}</Badge>)}</Flex>
-          )}
-          {program.source_url && <a className="source-link" href={program.source_url} target="_blank" rel="noreferrer">Open programme source</a>}
-          <Button variant="soft" onClick={() => onSelect(program)}>{actionLabel}</Button>
-        </Card>
-      ))}
+      {programs.map((program, index) => {
+        const isShortlisted = shortlistedIds?.includes(program.id) ?? false;
+        return (
+          <motion.div
+            className="programme-card-wrap"
+            key={program.id}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.24, delay: reduceMotion ? 0 : Math.min(index * 0.04, 0.2) }}
+          >
+            <SpotlightCard>
+              <Card className="programme-card">
+                <Flex justify="between" align="center" gap="2" width="100%">
+                  <Badge color={program.institution === "IIT" ? "blue" : "green"} variant="soft">{program.institution}</Badge>
+                  <Flex gap="2" align="center">
+                    {program.is_sample && <Badge color="amber" variant="soft">Sample</Badge>}
+                    {onToggleShortlist && <Button
+                      size="1"
+                      variant={isShortlisted ? "soft" : "outline"}
+                      aria-pressed={isShortlisted}
+                      aria-label={`${isShortlisted ? "Remove" : "Add"} ${program.title} ${isShortlisted ? "from" : "to"} comparison`}
+                      onClick={() => onToggleShortlist(program.id)}
+                    >
+                      {isShortlisted ? "Saved" : "Compare"}
+                    </Button>}
+                  </Flex>
+                </Flex>
+                <Heading size="4">{program.title}</Heading>
+                <Text size="2" color="gray">{program.level}{program.duration ? ` / ${program.duration}` : ""}</Text>
+                <Text size="2" className="programme-summary">{program.summary}</Text>
+                {program.subjects.length > 0 && (
+                  <Flex gap="2" wrap="wrap">{program.subjects.map((subject) => <Badge key={subject} color="gray" variant="outline">{subject}</Badge>)}</Flex>
+                )}
+                {program.source_url && <a className="source-link" href={program.source_url} target="_blank" rel="noreferrer">Open programme source</a>}
+                <Button variant="soft" onClick={() => onSelect(program)}>{actionLabel}</Button>
+              </Card>
+            </SpotlightCard>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -636,7 +709,7 @@ function ChatView({
         </Card>
         <Text size="1" color="gray">Orientation suggestions are exploratory. They are not an eligibility check or admission decision. An academic adviser reviews recommendations.</Text>
       </aside>
-      <section className="profile-editor" id="profile-editor">
+      <section className="profile-editor" id="profile-editor" data-scroll-story-item>
         <div><Heading size="4">Your profile</Heading><Text size="2" color="gray">You can edit or remove these details at any time.</Text></div>
         <ProfileForm profile={profile} onSave={async (value) => { await api("/api/profile", { method: "PUT", body: jsonBody(value) }); await onRefreshProfile(); }} />
       </section>
@@ -1029,6 +1102,8 @@ function CandidateWorkspace({
   user,
   profile,
   programs,
+  shortlistedIds,
+  onToggleShortlist,
   registrations,
   appointments,
   notifications,
@@ -1040,6 +1115,8 @@ function CandidateWorkspace({
   user: User;
   profile: Profile;
   programs: Program[];
+  shortlistedIds: number[];
+  onToggleShortlist: (programId: number) => void;
   registrations: Registration[];
   appointments: Appointment[];
   notifications: { id: number; subject: string; delivery_status: string; error: string; created_at: string }[];
@@ -1051,6 +1128,81 @@ function CandidateWorkspace({
   const [programDetail, setProgramDetail] = useState<Program | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recommendationError, setRecommendationError] = useState("");
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
+  const reduceMotion = useReducedMotion();
+  const shortlistedPrograms = programs.filter((program) => shortlistedIds.includes(program.id));
+  const profileComplete = Boolean(profile.current_level && profile.interests.length);
+  const hasConfirmedInterview = appointments.some((appointment) => appointment.status === "confirmed");
+  const progressStages = [
+    profileComplete,
+    shortlistedPrograms.length > 0,
+    registrations.length > 0,
+    hasConfirmedInterview,
+  ];
+  const progressCount = progressStages.filter(Boolean).length;
+  const progressPercent = Math.round((progressCount / progressStages.length) * 100);
+  const nextStep = !profileComplete
+    ? { title: "Complete your orientation profile", description: "A few details help make your adviser conversation more useful.", view: "profile" as const, label: "Update profile" }
+    : shortlistedPrograms.length === 0
+      ? { title: "Save programmes to compare", description: "Shortlist options that match your interests before choosing a next step.", view: "programmes" as const, label: "Explore programmes" }
+      : registrations.length === 0
+        ? { title: "Ask an adviser to review a programme", description: "Your shortlist is ready. Send a pre-registration when you feel comfortable.", view: "journey" as const, label: "Review next steps" }
+        : !hasConfirmedInterview
+          ? { title: "Check for updates from your adviser", description: "Your workspace will show any review updates or proposed meeting times.", view: "journey" as const, label: "View updates" }
+          : { title: "Your interview is confirmed", description: "Review the appointment details and prepare any questions you would like to ask.", view: "journey" as const, label: "View appointment" };
+
+  function getSummaryText() {
+    const lines = [
+      "SmartCampus orientation summary",
+      "",
+      `Interests: ${profile.interests.length ? profile.interests.join(", ") : "Not added yet"}`,
+      `Current level: ${profile.current_level || "Not added yet"}`,
+      "",
+      "Programmes to explore:",
+      ...(shortlistedPrograms.length ? shortlistedPrograms.map((program) => `- ${program.institution}: ${program.title}${program.is_sample ? " (sample information)" : ""}`) : ["- No programmes shortlisted yet"]),
+      "",
+      "This summary is for exploration only. Confirm programme details and academic decisions with an adviser.",
+    ];
+    return lines.join("\n");
+  }
+
+  async function shareSummary() {
+    setSummaryError("");
+    try {
+      const text = getSummaryText();
+      if (navigator.share) {
+        await navigator.share({ title: "My SmartCampus orientation summary", text });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        onToast("Orientation summary copied to your clipboard.");
+      } else {
+        throw new Error("Sharing is unavailable in this browser. Download the summary instead.");
+      }
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") return;
+      setSummaryError(messageOf(caught));
+    }
+  }
+
+  function downloadSummary() {
+    setSummaryError("");
+    try {
+      const file = new Blob([getSummaryText()], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "smartcampus-orientation-summary.txt";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      onToast("Orientation summary downloaded.");
+    } catch (caught) {
+      setSummaryError(messageOf(caught));
+    }
+  }
+
   async function getRecommendations() {
     setRecommendationError("");
     try {
@@ -1064,10 +1216,42 @@ function CandidateWorkspace({
   if (view === "programmes") {
     return (
       <>
-        <section className="page-intro"><div><Text size="2" color="gray">Catalogue</Text><Heading size="7">Explore your options</Heading><Text as="p" size="3" color="gray">Review listed programmes and check details with an adviser before you decide.</Text></div><Button variant="soft" onClick={getRecommendations}>Compare with my profile</Button></section>
+        <section className="page-intro"><div><Text size="2" color="gray">Catalogue</Text><Heading size="7">Explore your options</Heading><Text as="p" size="3" color="gray">Review listed programmes and check details with an adviser before you decide.</Text></div><Button variant="soft" onClick={getRecommendations}>Find options for my interests</Button></section>
+        <section className="shortlist-toolbar" aria-label="Programme shortlist">
+          <div><Text size="2" weight="bold">{shortlistedPrograms.length} of 3 programmes saved</Text><Text as="p" size="1" color="gray">Saved in this browser. Compare up to three options; shared summaries omit your name and contact details.</Text></div>
+          <div className="shortlist-actions">
+            <Button variant="soft" disabled={shortlistedPrograms.length < 2} onClick={() => setComparisonOpen(true)}>Compare shortlist</Button>
+            <Button variant="outline" disabled={!shortlistedPrograms.length} onClick={() => void shareSummary()}>Share summary</Button>
+            <Button variant="outline" disabled={!shortlistedPrograms.length} onClick={downloadSummary}>Download summary</Button>
+          </div>
+        </section>
+        {summaryError && <p className="inline-error" role="alert">{summaryError}</p>}
         {recommendationError && <p className="inline-error" role="alert">{recommendationError}</p>}
         {recommendations.length > 0 && <div className="recommendation-banner"><Text size="2" weight="bold">Exploratory suggestions</Text><Text size="2" color="gray">Interest overlap only, not admissions eligibility. Sample entries are not official.</Text><div className="recommendation-list">{recommendations.map((item) => <div key={item.program.id}><b>{item.program.title}</b><span>{item.interest_overlap}% interest overlap</span><small>{item.explanation}</small></div>)}</div></div>}
-        <ProgramList programs={programs} onSelect={setProgramDetail} />
+        <ProgramList programs={programs} onSelect={setProgramDetail} shortlistedIds={shortlistedIds} onToggleShortlist={onToggleShortlist} />
+        <Dialog.Root open={comparisonOpen} onOpenChange={setComparisonOpen}>
+          <Dialog.Content className="comparison-dialog" maxWidth="880px">
+            <Dialog.Title>Compare your shortlist</Dialog.Title>
+            <Text as="p" size="2" color="gray">Use this overview to guide a conversation. Sample details are not official.</Text>
+            <div className="comparison-scroll">
+              <table className="comparison-table">
+                <thead><tr><th scope="col">Programme details</th>{shortlistedPrograms.map((program) => <th scope="col" key={program.id}>{program.title}{program.is_sample && <span className="comparison-sample">Sample information</span>}</th>)}</tr></thead>
+                <tbody>
+                  {comparisonFields.map(({ label, getValue }) => (
+                    <tr key={label}>
+                      <th scope="row">{label}</th>
+                      {shortlistedPrograms.map((program) => {
+                        const value = getValue(program);
+                        return <td key={program.id}>{value || "Not provided"}</td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Dialog.Close><Button variant="soft">Close comparison</Button></Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Root>
         <Dialog.Root open={Boolean(programDetail)} onOpenChange={(open) => { if (!open) setProgramDetail(null); }}>
           <Dialog.Content maxWidth="520px">
             <Dialog.Title>{programDetail?.title}</Dialog.Title>
@@ -1091,12 +1275,30 @@ function CandidateWorkspace({
     return <><section className="page-intro"><div><Text size="2" color="gray">Candidate workspace</Text><Heading size="7">Your next steps</Heading><Text as="p" size="3" color="gray">Manage pre-registration, interview preparation, and updates in one place.</Text></div></section><CandidateJourney programs={programs} registrations={registrations} appointments={appointments} notifications={notifications} onRefresh={onRefresh} onToast={onToast} /></>;
   }
   return (
-    <div className="candidate-overview">
-      <section className="welcome-banner">
+    <ScrollStory className="candidate-overview scroll-story">
+      <section className="welcome-banner" data-scroll-story-item>
         <div><Text size="2" color="gray">Your orientation workspace</Text><Heading size="7">Welcome, {user.name.split(" ")[0]}.</Heading><Text as="p" size="3" color="gray">Start with what interests you. The next steps can wait until you are ready.</Text><Flex gap="3" wrap="wrap"><Button onClick={() => window.dispatchEvent(new CustomEvent("smartcampus:navigate", { detail: "conversation" }))}>Talk through my options</Button><Button variant="soft" onClick={() => window.dispatchEvent(new CustomEvent("smartcampus:navigate", { detail: "programmes" }))}>Browse programmes</Button></Flex></div>
-        <div className="welcome-side"><Text size="1" weight="bold" color="gray">YOUR PROGRESS</Text><div className="journey-progress"><span className={profile.interests.length ? "complete" : ""}>Profile</span><i /><span className={registrations.length ? "complete" : ""}>Request</span><i /><span className={appointments.some((appointment) => appointment.status === "confirmed") ? "complete" : ""}>Interview</span></div><Text size="1" color="gray">Your adviser confirms official academic decisions.</Text></div>
+        <aside className="welcome-side">
+          <div className="progress-heading"><Text size="1" weight="bold" color="gray">YOUR PROGRESS</Text><strong>{progressPercent}%</strong></div>
+          <div className="progress-track" role="progressbar" aria-label="Orientation progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+            <motion.div initial={reduceMotion ? false : { width: 0 }} animate={{ width: `${progressPercent}%` }} transition={{ duration: reduceMotion ? 0 : 0.45, ease: "easeOut" }} />
+          </div>
+          <div className="progress-milestones">
+            {["Profile", "Shortlist", "Review", "Interview"].map((stage, index) => <span className={progressStages[index] ? "complete" : ""} key={stage}>{stage}</span>)}
+          </div>
+          <div className="next-action-card">
+            <Text size="1" weight="bold" color="gray">YOUR NEXT STEP</Text>
+            <Heading size="4">{nextStep.title}</Heading>
+            <Text size="2" color="gray">{nextStep.description}</Text>
+            <Button size="2" variant="soft" onClick={() => {
+              if (nextStep.view === "profile") onEditProfile();
+              else window.dispatchEvent(new CustomEvent("smartcampus:navigate", { detail: nextStep.view }));
+            }}>{nextStep.label}</Button>
+          </div>
+          <Text size="1" color="gray">Your adviser confirms official academic decisions.</Text>
+        </aside>
       </section>
-      <div className="overview-lower">
+      <div className="overview-lower" data-scroll-story-item>
         <section className="journey-section">
           <div className="section-title"><div><Heading size="5">A path that stays yours</Heading><Text size="2" color="gray">Take one step now or come back later.</Text></div></div>
           <div className="next-step-grid">
@@ -1111,11 +1313,11 @@ function CandidateWorkspace({
           {appointments.filter((appointment) => appointment.status === "proposed" || appointment.status === "confirmed").slice(0, 1).map((appointment) => <div className="overview-update" key={appointment.id}><Text size="2" weight="bold">Interview / {dateLabel(appointment.starts_at)}</Text><StatusBadge value={appointment.status} /></div>)}
         </aside>
       </div>
-      <section className="profile-editor" id="profile-editor">
+      <section className="profile-editor" id="profile-editor" data-scroll-story-item>
         <div><Heading size="4">Your orientation profile</Heading><Text size="2" color="gray">Share only what helps your conversation.</Text></div>
         <ProfileForm profile={profile} onSave={async (value) => { await api("/api/profile", { method: "PUT", body: jsonBody(value) }); await onRefresh(); }} />
       </section>
-    </div>
+    </ScrollStory>
   );
 }
 
@@ -1273,10 +1475,10 @@ function StaffWorkspace({
       ["Interview appointments", stats.appointments],
     ] as const : [];
     return (
-      <div className="staff-overview">
-        <section className="page-intro"><div><Text size="2" color="gray">{roleLabel(user.role)}</Text><Heading size="7">Admissions overview</Heading><Text as="p" size="3" color="gray">A live view of records in this workspace. Academic decisions remain with your team.</Text></div></section>
-        <div className="metric-row">{metrics.map(([label, value]) => <Card className="metric-card" key={label}><Text size="2" color="gray">{label}</Text><Heading size="7">{value}</Heading></Card>)}</div>
-        <div className="overview-lower">
+      <ScrollStory className="staff-overview scroll-story">
+        <section className="page-intro" data-scroll-story-item><div><Text size="2" color="gray">{roleLabel(user.role)}</Text><Heading size="7">Admissions overview</Heading><Text as="p" size="3" color="gray">A live view of records in this workspace. Academic decisions remain with your team.</Text></div></section>
+        <div className="metric-row" data-scroll-story-item>{metrics.map(([label, value]) => <Card className="metric-card" key={label}><Text size="2" color="gray">{label}</Text><Heading size="7">{value}</Heading></Card>)}</div>
+        <div className="overview-lower" data-scroll-story-item>
           <section className="journey-section">
             <div className="section-title"><div><Heading size="5">Needs attention</Heading><Text size="2" color="gray">Requests awaiting a human review.</Text></div><Button variant="soft" onClick={() => window.dispatchEvent(new CustomEvent("smartcampus:navigate", { detail: "candidates" }))}>Open candidates</Button></div>
             {registrations.filter((registration) => registration.status === "pending_review" || registration.status === "needs_information").slice(0, 6).map((registration) => (
@@ -1290,8 +1492,8 @@ function StaffWorkspace({
             <Text size="1" color="gray">{stats?.data_note}</Text>
           </section>
         </div>
-        {appointments.length > 0 && <section className="journey-section"><Heading size="5">Interview schedule</Heading>{appointments.slice(0, 6).map((appointment) => <div className="document-row" key={appointment.id}><div><Text weight="bold" size="2">Candidate #{appointment.user_id}</Text><Text as="p" size="1" color="gray">{dateLabel(appointment.starts_at)} / {appointment.mode}</Text></div><StatusBadge value={appointment.status} /></div>)}</section>}
-      </div>
+        {appointments.length > 0 && <section className="journey-section" data-scroll-story-item><Heading size="5">Interview schedule</Heading>{appointments.slice(0, 6).map((appointment) => <div className="document-row" key={appointment.id}><div><Text weight="bold" size="2">Candidate #{appointment.user_id}</Text><Text as="p" size="1" color="gray">{dateLabel(appointment.starts_at)} / {appointment.mode}</Text></div><StatusBadge value={appointment.status} /></div>)}</section>}
+      </ScrollStory>
     );
   }
   return null;
@@ -1304,6 +1506,9 @@ function AppWorkspace() {
   const [view, setView] = useState<View>("overview");
   const shouldFocusProfile = useRef(false);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [shortlistedIds, setShortlistedIds] = useState<number[]>([]);
+  const [shortlistOwner, setShortlistOwner] = useState("");
+  const [shortlistError, setShortlistError] = useState("");
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -1315,6 +1520,8 @@ function AppWorkspace() {
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const isStaff = user !== null && user.role !== "candidate";
+  const reduceMotion = useReducedMotion();
+  const shortlistKey = user?.role === "candidate" ? `smartcampus_shortlist_${user.id}` : "";
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -1383,6 +1590,33 @@ function AppWorkspace() {
   }, [user, refresh]);
 
   useEffect(() => {
+    if (!shortlistKey) {
+      setShortlistOwner("");
+      setShortlistedIds([]);
+      return;
+    }
+
+    setShortlistOwner("");
+    setShortlistError("");
+    try {
+      setShortlistedIds(readShortlist(shortlistKey));
+      setShortlistOwner(shortlistKey);
+    } catch (caught) {
+      setShortlistedIds([]);
+      setShortlistError(`Could not load your saved programme shortlist: ${messageOf(caught)}`);
+    }
+  }, [shortlistKey]);
+
+  useEffect(() => {
+    if (!shortlistKey || shortlistOwner !== shortlistKey) return;
+    try {
+      localStorage.setItem(shortlistKey, JSON.stringify(shortlistedIds));
+    } catch (caught) {
+      setShortlistError(`Could not save your programme shortlist: ${messageOf(caught)}`);
+    }
+  }, [shortlistKey, shortlistOwner, shortlistedIds]);
+
+  useEffect(() => {
     if (view !== "overview" || !shouldFocusProfile.current) return;
     shouldFocusProfile.current = false;
     const frame = window.requestAnimationFrame(() => {
@@ -1420,6 +1654,8 @@ function AppWorkspace() {
     sessionStorage.removeItem("smartcampus_token");
     setUser(null);
     setPrograms([]);
+    setShortlistedIds([]);
+    setShortlistOwner("");
     setRegistrations([]);
     setAppointments([]);
     setView("overview");
@@ -1430,6 +1666,31 @@ function AppWorkspace() {
     sessionStorage.removeItem("smartcampus_guest_id");
     sessionStorage.removeItem("smartcampus_guest_token");
     setGuestMode(true);
+  }
+
+  function toggleShortlist(programId: number) {
+    const current = shortlistedIds.filter((id) => programs.some((program) => program.id === id));
+    if (current.includes(programId)) {
+      setShortlistedIds(current.filter((id) => id !== programId));
+      return;
+    }
+    if (current.length >= 3) {
+      setToast("Compare up to three programmes at a time.");
+      return;
+    }
+    setShortlistedIds([...current, programId]);
+  }
+
+  function retryShortlist() {
+    try {
+      const saved = readShortlist(shortlistKey);
+      localStorage.setItem(shortlistKey, JSON.stringify(saved));
+      setShortlistedIds(saved);
+      setShortlistOwner(shortlistKey);
+      setShortlistError("");
+    } catch (caught) {
+      setShortlistError(`Could not load your saved programme shortlist: ${messageOf(caught)}`);
+    }
   }
 
   const nav: { id: View; label: string }[] = useMemo(() => {
@@ -1472,36 +1733,56 @@ function AppWorkspace() {
       </header>
       <div className="page-wrap" id="page-content">
         {pageError && <div className="page-alert" role="alert"><Text size="2">{pageError}</Text><Button size="1" variant="soft" onClick={() => void refresh()}>Retry</Button></div>}
+        {shortlistError && <div className="page-alert" role="alert"><Text size="2">{shortlistError}</Text><Button size="1" variant="soft" onClick={retryShortlist}>Retry saved programmes</Button></div>}
         {refreshing && <div className="refresh-indicator"><Spinner size="1" /><Text size="1" color="gray">Updating workspace…</Text></div>}
-        {user.role === "candidate" ? (
-          <CandidateWorkspace
-            user={user}
-            profile={profile}
-            programs={programs}
-            registrations={registrations}
-            appointments={appointments}
-            notifications={notifications}
-            onRefresh={refresh}
-            onToast={setToast}
-            onEditProfile={() => {
-              shouldFocusProfile.current = true;
-              setView("overview");
-            }}
-            view={view}
-          />
-        ) : (
-          <StaffWorkspace
-            user={user}
-            view={view}
-            programs={programs}
-            candidates={candidates}
-            registrations={registrations}
-            stats={stats}
-            quizzes={quizzes}
-            appointments={appointments}
-            onRefresh={refresh}
-          />
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            className="page-transition"
+            key={view}
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: "easeOut" }}
+          >
+            {user.role === "candidate" ? (
+              <CandidateWorkspace
+                user={user}
+                profile={profile}
+                programs={programs}
+                shortlistedIds={shortlistedIds}
+                onToggleShortlist={toggleShortlist}
+                registrations={registrations}
+                appointments={appointments}
+                notifications={notifications}
+                onRefresh={refresh}
+                onToast={setToast}
+                onEditProfile={() => {
+                  shouldFocusProfile.current = true;
+                  if (view === "overview") {
+                    window.requestAnimationFrame(() => {
+                      document.getElementById("profile-editor")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+                    });
+                  } else {
+                    setView("overview");
+                  }
+                }}
+                view={view}
+              />
+            ) : (
+              <StaffWorkspace
+                user={user}
+                view={view}
+                programs={programs}
+                candidates={candidates}
+                registrations={registrations}
+                stats={stats}
+                quizzes={quizzes}
+                appointments={appointments}
+                onRefresh={refresh}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
       {toast && <div className="toast-message" role="status">{toast}<button onClick={() => setToast("")} aria-label="Dismiss notification">×</button></div>}
       <footer className="app-footer">

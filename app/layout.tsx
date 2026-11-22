@@ -1,6 +1,7 @@
 import "@radix-ui/themes/styles.css";
 import "./globals.css";
 import { Theme } from "@radix-ui/themes";
+import { SmoothScroll } from "@/components/smooth-scroll";
 
 export const metadata = {
   title: "SmartCampus AI | University orientation",
@@ -12,8 +13,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <Theme appearance="light" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
-          {children}
+        <Theme appearance="light" accentColor="green" grayColor="sand" radius="medium" scaling="100%">
+          <SmoothScroll>{children}</SmoothScroll>
         </Theme>
       </body>
     </html>
