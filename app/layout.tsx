@@ -12,7 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <Theme appearance="inherit" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
+        <Theme appearance="light" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
           {children}
         </Theme>
       </body>

@@ -156,6 +156,7 @@ function AuthScreen({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -178,7 +179,8 @@ function AuthScreen({
   }
 
   return (
-    <main className="auth-page">
+    <main className="auth-page" id="main-content">
+      <a className="skip-link" href="#auth-form">Skip to sign in</a>
       <section className="auth-copy">
         <a className="brand-lockup" href="/" aria-label="SmartCampus AI home">
           <span className="brand-mark">S</span>
@@ -196,44 +198,51 @@ function AuthScreen({
             <div><span className="point-index">03</span><span>Keep academic decisions with people</span></div>
           </div>
         </div>
-        <Text size="1" color="gray">Sample programme information is clearly marked and must be replaced with verified IIT and ISB sources.</Text>
+        <Text size="1" color="gray" className="auth-footnote">Sample programme information is clearly marked and must be replaced with verified IIT and ISB sources.</Text>
       </section>
 
       <section className="auth-panel">
         <div className="auth-card">
-          <Text size="2" color="gray">{mode === "login" ? "Your application workspace" : "New candidate account"}</Text>
+          <Text size="2" color="gray" className="auth-eyebrow">{mode === "login" ? "Your application workspace" : "New candidate account"}</Text>
           <Heading size="6">{mode === "login" ? "Welcome back" : "Create your account"}</Heading>
           <Text as="p" size="2" color="gray">
-            {mode === "login" ? "Sign in to continue your orientation." : "Use an email address you can access."}
+            {mode === "login" ? "Sign in to continue your orientation." : "Create an account to save your progress and continue your orientation."}
           </Text>
-          <form className="stack-form" onSubmit={submit}>
+          <form className="stack-form auth-form" id="auth-form" onSubmit={submit} aria-busy={busy}>
             {mode === "register" && (
               <Field label="Full name" id="auth-name">
-                <TextField.Root id="auth-name" autoComplete="name" required minLength={2} value={name} onChange={(event) => setName(event.target.value)} />
+                <TextField.Root id="auth-name" autoComplete="name" placeholder="Your full name" required minLength={2} value={name} onChange={(event) => setName(event.target.value)} />
               </Field>
             )}
             <Field label="Email address" id="auth-email">
-              <TextField.Root id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+              <TextField.Root id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} />
             </Field>
             <Field label="Password" id="auth-password" hint={mode === "register" ? "At least 12 characters." : undefined}>
-              <TextField.Root id="auth-password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={mode === "register" ? 12 : 1} value={password} onChange={(event) => setPassword(event.target.value)} />
+              <div className="password-control">
+                <TextField.Root id="auth-password" type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={mode === "register" ? 12 : 1} value={password} onChange={(event) => setPassword(event.target.value)} />
+                <button className="password-toggle" type="button" aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)}>
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </Field>
             {error && <p className="inline-error" role="alert">{error}</p>}
-            <Button type="submit" size="3" disabled={busy}>
+            <Button type="submit" size="3" disabled={busy} aria-busy={busy}>
               {busy ? <Spinner /> : mode === "login" ? "Sign in" : "Create account"}
             </Button>
           </form>
-          <Separator size="4" />
-          <Text size="2" color="gray">
-            {mode === "login" ? "New to the platform?" : "Already have an account?"}{" "}
-            <button type="button" className="text-button" onClick={() => { setError(""); setMode(mode === "login" ? "register" : "login"); }}>
+          <div className="auth-mode-switch">
+            <Text size="2" color="gray">
+              {mode === "login" ? "New to the platform?" : "Already have an account?"}
+            </Text>
+            <button type="button" className="text-button" disabled={busy} onClick={() => { setError(""); setPassword(""); setShowPassword(false); setMode(mode === "login" ? "register" : "login"); }}>
               {mode === "login" ? "Create an account" : "Sign in"}
             </button>
-          </Text>
+          </div>
+          <Separator size="4" />
           {hasGuestConversation ? (
-            <Button type="button" variant="soft" onClick={onBackToGuest}>Return to my guest conversation</Button>
+            <Button type="button" className="auth-guest-button" variant="soft" onClick={onBackToGuest}>Return to my guest conversation</Button>
           ) : (
-            <Button type="button" variant="soft" onClick={onStartGuest}>Explore as a guest</Button>
+            <Button type="button" className="auth-guest-button" variant="soft" onClick={onStartGuest}>Explore as a guest</Button>
           )}
         </div>
       </section>
@@ -284,7 +293,9 @@ function GuestChat({ onCreateAccount }: { onCreateAccount: () => void }) {
     return () => { active = false; };
   }, [begin]);
 
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -308,7 +319,8 @@ function GuestChat({ onCreateAccount }: { onCreateAccount: () => void }) {
   }
 
   return (
-    <main className="guest-page">
+    <main className="guest-page" id="main-content">
+      <a className="skip-link" href="#guest-chat">Skip to conversation</a>
       <header className="guest-header">
         <a className="brand-lockup" href="/"><span className="brand-mark">S</span><span>SmartCampus <b>AI</b></span></a>
         <Button variant="soft" onClick={onCreateAccount}>Create an account</Button>
@@ -319,7 +331,7 @@ function GuestChat({ onCreateAccount }: { onCreateAccount: () => void }) {
           <Heading size="7">Start with a question.</Heading>
           <Text as="p" size="3" color="gray">Explore your interests and ask about study options. You can create an account later to keep this conversation.</Text>
         </section>
-        <section className="guest-chat chat-panel">
+        <section className="guest-chat chat-panel" id="guest-chat">
           <div className="panel-heading"><div><Heading size="4">Orientation conversation</Heading><Text size="2" color="gray">French, Tunisian Arabic, or Arabizi</Text></div><Badge color="gray" variant="soft">Guest session</Badge></div>
           <div className="chat-messages" aria-live="polite">
             {messages.length === 0 && <div className="chat-welcome"><span className="welcome-monogram">S</span><Heading size="4">What would you like to study?</Heading><Text size="2" color="gray">Tell me what subjects you enjoy or ask about the programmes listed in the source material.</Text></div>}
@@ -349,7 +361,9 @@ function ProfileForm({
   const [draft, setDraft] = useState<Profile>(profile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => setDraft(profile), [profile]);
+  useEffect(() => {
+    setDraft(profile);
+  }, [profile]);
   function toggleInterest(value: string, checked: boolean) {
     setDraft((current) => ({
       ...current,
@@ -413,9 +427,11 @@ function ProfileForm({
 function ProgramList({
   programs,
   onSelect,
+  actionLabel = "View programme",
 }: {
   programs: Program[];
   onSelect: (program: Program) => void;
+  actionLabel?: string;
 }) {
   if (!programs.length) return <div className="empty-state"><Heading size="4">No programmes available</Heading><Text color="gray">Ask an administrator to add verified programme information.</Text></div>;
   return (
@@ -433,7 +449,7 @@ function ProgramList({
             <Flex gap="2" wrap="wrap">{program.subjects.map((subject) => <Badge key={subject} color="gray" variant="outline">{subject}</Badge>)}</Flex>
           )}
           {program.source_url && <a className="source-link" href={program.source_url} target="_blank" rel="noreferrer">Open programme source</a>}
-          <Button variant="soft" onClick={() => onSelect(program)}>View programme</Button>
+          <Button variant="soft" onClick={() => onSelect(program)}>{actionLabel}</Button>
         </Card>
       ))}
     </div>
@@ -444,10 +460,12 @@ function ChatView({
   programs,
   profile,
   onRefreshProfile,
+  onEditProfile,
 }: {
   programs: Program[];
   profile: Profile;
   onRefreshProfile: () => Promise<void>;
+  onEditProfile: () => void;
 }) {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -470,7 +488,9 @@ function ChatView({
       .catch((caught) => setError(messageOf(caught)));
   }, []);
 
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function startConversation() {
     const response = await api<{ id: number }>("/api/conversations", {
@@ -599,7 +619,7 @@ function ChatView({
             <Text size="2"><b>Interests</b><br />{profile.interests.length ? profile.interests.join(", ") : "Add a few subjects to begin"}</Text>
             <Text size="2"><b>Goal</b><br />{profile.goals || "Still to explore"}</Text>
           </div>
-          <Button variant="soft" onClick={() => document.getElementById("profile-editor")?.scrollIntoView({ behavior: "smooth" })}>Edit my profile</Button>
+          <Button variant="soft" onClick={onEditProfile}>Edit my profile</Button>
         </Card>
         <Card className="aside-card">
           <Flex justify="between" align="center" gap="3">
@@ -844,6 +864,7 @@ function CatalogManager({
   };
   const [draft, setDraft] = useState(blank);
   const [editing, setEditing] = useState<number | null>(null);
+  const [viewing, setViewing] = useState<Program | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   function startEdit(program: Program) {
@@ -878,7 +899,11 @@ function CatalogManager({
     <div className="catalog-layout">
       <section className="journey-section">
         <div className="section-title"><div><Heading size="5">Programme catalogue</Heading><Text size="2" color="gray">Only verified records should be used for candidate guidance.</Text></div><Badge color="amber" variant="soft">{programs.filter((program) => program.is_sample).length} sample records</Badge></div>
-        <ProgramList programs={programs} onSelect={startEdit} />
+        <ProgramList
+          programs={programs}
+          onSelect={canEdit ? startEdit : setViewing}
+          actionLabel={canEdit ? "Edit programme" : "View programme"}
+        />
       </section>
       {canEdit && (
         <aside className="journey-section">
@@ -908,6 +933,27 @@ function CatalogManager({
           </form>
         </aside>
       )}
+      {!canEdit && (
+        <Dialog.Root open={Boolean(viewing)} onOpenChange={(open) => { if (!open) setViewing(null); }}>
+          <Dialog.Content maxWidth="520px">
+            <Dialog.Title>{viewing?.title}</Dialog.Title>
+            <Flex gap="2" wrap="wrap">
+              <Badge color={viewing?.institution === "IIT" ? "blue" : "green"} variant="soft">{viewing?.institution}</Badge>
+              {viewing?.is_sample && <Badge color="amber" variant="soft">Sample, not official</Badge>}
+            </Flex>
+            <Text as="p" size="2">{viewing?.summary}</Text>
+            <Separator size="4" />
+            <Text as="p" size="2"><b>Level:</b> {viewing?.level || "Not provided"}</Text>
+            <Text as="p" size="2"><b>Duration:</b> {viewing?.duration || "Not provided"}</Text>
+            <Text as="p" size="2"><b>Prerequisites:</b> {viewing?.prerequisites || "Not provided"}</Text>
+            <Text as="p" size="2"><b>Tuition:</b> {viewing?.tuition || "Not provided"}</Text>
+            <Text as="p" size="2"><b>Subjects:</b> {viewing?.subjects.join(", ") || "Not provided"}</Text>
+            <Text as="p" size="2"><b>Career outcomes:</b> {viewing?.careers.join(", ") || "Not provided"}</Text>
+            {viewing?.source_url && <a className="source-link" href={viewing.source_url} target="_blank" rel="noreferrer">Open programme source</a>}
+            <Dialog.Close><Button variant="soft">Close</Button></Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Root>
+      )}
     </div>
   );
 }
@@ -917,8 +963,18 @@ function KnowledgeManager() {
   const [draft, setDraft] = useState({ title: "", institution: "IIT", content: "", source_url: "", is_sample: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const load = useCallback(async () => setDocuments(await api("/api/admin/documents")), []);
-  useEffect(() => { void load().catch((caught) => setError(messageOf(caught))); }, [load]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const load = useCallback(async () => {
+    setLoadingDocuments(true);
+    setLoadError("");
+    try {
+      setDocuments(await api("/api/admin/documents"));
+    } finally {
+      setLoadingDocuments(false);
+    }
+  }, []);
+  useEffect(() => { void load().catch((caught) => setLoadError(messageOf(caught))); }, [load]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -938,7 +994,14 @@ function KnowledgeManager() {
       <section className="journey-section">
         <Heading size="5">Knowledge sources</Heading>
         <Text size="2" color="gray">Only administrator-approved, verified source content should support factual answers.</Text>
-        {documents.length ? documents.map((document) => (
+        {loadingDocuments ? (
+          <Text as="p" size="2" color="gray" role="status">Loading indexed sources…</Text>
+        ) : loadError ? (
+          <div className="load-error" role="alert">
+            <Text size="2">{loadError}</Text>
+            <Button size="1" variant="soft" onClick={() => void load().catch((caught) => setLoadError(messageOf(caught)))}>Retry</Button>
+          </div>
+        ) : documents.length ? documents.map((document) => (
           <div className="document-row" key={document.id}>
             <div><Text weight="bold" size="2">{document.title}</Text><Text as="p" size="1" color="gray">{document.institution} / updated {dateLabel(document.updated_at)}</Text></div>
             {document.is_sample && <Badge color="amber" variant="soft">Sample</Badge>}
@@ -971,6 +1034,7 @@ function CandidateWorkspace({
   notifications,
   onRefresh,
   onToast,
+  onEditProfile,
   view,
 }: {
   user: User;
@@ -981,6 +1045,7 @@ function CandidateWorkspace({
   notifications: { id: number; subject: string; delivery_status: string; error: string; created_at: string }[];
   onRefresh: () => Promise<void>;
   onToast: (message: string) => void;
+  onEditProfile: () => void;
   view: View;
 }) {
   const [programDetail, setProgramDetail] = useState<Program | null>(null);
@@ -995,7 +1060,7 @@ function CandidateWorkspace({
       setRecommendationError(messageOf(error));
     }
   }
-  if (view === "conversation") return <ChatView programs={programs} profile={profile} onRefreshProfile={onRefresh} />;
+  if (view === "conversation") return <ChatView programs={programs} profile={profile} onRefreshProfile={onRefresh} onEditProfile={onEditProfile} />;
   if (view === "programmes") {
     return (
       <>
@@ -1046,7 +1111,7 @@ function CandidateWorkspace({
           {appointments.filter((appointment) => appointment.status === "proposed" || appointment.status === "confirmed").slice(0, 1).map((appointment) => <div className="overview-update" key={appointment.id}><Text size="2" weight="bold">Interview / {dateLabel(appointment.starts_at)}</Text><StatusBadge value={appointment.status} /></div>)}
         </aside>
       </div>
-      <section className="profile-editor">
+      <section className="profile-editor" id="profile-editor">
         <div><Heading size="4">Your orientation profile</Heading><Text size="2" color="gray">Share only what helps your conversation.</Text></div>
         <ProfileForm profile={profile} onSave={async (value) => { await api("/api/profile", { method: "PUT", body: jsonBody(value) }); await onRefresh(); }} />
       </section>
@@ -1237,6 +1302,7 @@ function AppWorkspace() {
   const [loading, setLoading] = useState(true);
   const [guestMode, setGuestMode] = useState(false);
   const [view, setView] = useState<View>("overview");
+  const shouldFocusProfile = useRef(false);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -1317,6 +1383,15 @@ function AppWorkspace() {
   }, [user, refresh]);
 
   useEffect(() => {
+    if (view !== "overview" || !shouldFocusProfile.current) return;
+    shouldFocusProfile.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("profile-editor")?.scrollIntoView({ behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view]);
+
+  useEffect(() => {
     function onNavigate(event: Event) {
       const requested = (event as CustomEvent<View>).detail;
       if (requested) setView(requested);
@@ -1381,20 +1456,21 @@ function AppWorkspace() {
   if (!user) return <AuthScreen onLogin={login} onStartGuest={startGuest} onBackToGuest={() => setGuestMode(true)} hasGuestConversation={Boolean(sessionStorage.getItem("smartcampus_guest_id"))} />;
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" id="main-content">
+      <a className="skip-link" href="#page-content">Skip to content</a>
       <header className="topbar">
         <a className="brand-lockup" href="/" aria-label="SmartCampus AI home">
           <span className="brand-mark">S</span><span>SmartCampus <b>AI</b></span>
         </a>
         <nav className="main-nav" aria-label="Main navigation">
-          {nav.map((item) => <button key={item.id} className={`nav-item ${view === item.id ? "active" : ""}`} onClick={() => setView(item.id)}>{item.label}</button>)}
+          {nav.map((item) => <button key={item.id} className={`nav-item ${view === item.id ? "active" : ""}`} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}>{item.label}</button>)}
         </nav>
         <div className="account-controls">
           <div className="account-meta"><span>{user.name}</span><small>{roleLabel(user.role)}</small></div>
           <Button variant="soft" size="2" onClick={logout}>Sign out</Button>
         </div>
       </header>
-      <div className="page-wrap">
+      <div className="page-wrap" id="page-content">
         {pageError && <div className="page-alert" role="alert"><Text size="2">{pageError}</Text><Button size="1" variant="soft" onClick={() => void refresh()}>Retry</Button></div>}
         {refreshing && <div className="refresh-indicator"><Spinner size="1" /><Text size="1" color="gray">Updating workspace…</Text></div>}
         {user.role === "candidate" ? (
@@ -1407,6 +1483,10 @@ function AppWorkspace() {
             notifications={notifications}
             onRefresh={refresh}
             onToast={setToast}
+            onEditProfile={() => {
+              shouldFocusProfile.current = true;
+              setView("overview");
+            }}
             view={view}
           />
         ) : (
