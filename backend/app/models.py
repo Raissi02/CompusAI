@@ -149,6 +149,25 @@ class KnowledgeDocument(Base):
     is_sample: Mapped[bool] = mapped_column(Boolean, default=True)
     embedding: Mapped[List[float]] = mapped_column(Embedding())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", order_by="DocumentChunk.ordinal"
+    )
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, default=0)
+    content: Mapped[str] = mapped_column(Text)
+    start_char: Mapped[int] = mapped_column(Integer, default=0)
+    end_char: Mapped[int] = mapped_column(Integer, default=0)
+    institution: Mapped[str] = mapped_column(String(16), index=True)
+    embedding: Mapped[List[float]] = mapped_column(Embedding())
+    document: Mapped[KnowledgeDocument] = relationship(back_populates="chunks")
 
 
 class PreRegistration(Base):

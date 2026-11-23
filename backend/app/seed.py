@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import KnowledgeDocument, Program, User
-from app.rag import embed
+from app.rag import embed, ensure_document_chunks
 from app.security import hash_password
 
 
@@ -802,6 +802,11 @@ async def seed_demo_data(db: Session) -> None:
                     embedding=await embed(f'{item["title"]} {item["content"]}'),
                 )
             )
+
+    db.flush()
+    for document in db.scalars(select(KnowledgeDocument)):
+        if not document.chunks:
+            await ensure_document_chunks(db, document)
 
     demo_password = os.getenv("DEMO_PASSWORD", "CampusDemo2026!")
     for email, name, role, institution in DEMO_ACCOUNTS:

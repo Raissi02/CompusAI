@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.main import detect_language, extract_profile_hints
-from app.rag import answer_with_sources, search_documents
+from app.rag import answer_with_hits, search_chunk_hits
 
 
 CASES = [
@@ -67,10 +67,10 @@ async def evaluate_language_and_retrieval(db: Session) -> dict[str, Any]:
     for case in CASES:
         started = time.perf_counter()
         detected = detect_language(case["question"], case.get("fallback", "fr"))
-        sources = await search_documents(db, case["question"])
-        relevant = any(source.institution == case["institution"] for source in sources)
+        hits = await search_chunk_hits(db, case["question"])
+        relevant = any(hit.document.institution == case["institution"] for hit in hits)
         expected_source_retrieved = any(
-            source.title == case["expected_source"] for source in sources
+            hit.document.title == case["expected_source"] for hit in hits
         )
         profile = SimpleNamespace(interests=[], current_level="", goals="", updated_at=None)
         extract_profile_hints(profile, case["question"])
@@ -84,7 +84,19 @@ async def evaluate_language_and_retrieval(db: Session) -> dict[str, Any]:
                 "retrieved_institution": relevant,
                 "expected_source": case["expected_source"],
                 "expected_source_retrieved": expected_source_retrieved,
-                "source_titles": [source.title for source in sources],
+                "retrieved_chunks": [
+                    {
+                        "document": hit.document.title,
+                        "institution": hit.document.institution,
+                        "chunk_id": hit.chunk.id,
+                        "score": hit.score,
+                        "lexical_score": hit.lexical_score,
+                        "vector_score": hit.vector_score,
+                        "snippet": hit.chunk.content[:160],
+                    }
+                    for hit in hits
+                ],
+                "source_titles": [hit.document.title for hit in hits],
                 "profile_interests_extracted": profile.interests,
                 "latency_ms": round((time.perf_counter() - started) * 1000, 1),
             }
@@ -124,11 +136,11 @@ async def compare_configured_models(db: Session, models: list[str]) -> list[dict
     for model in models[:3]:
         responses = []
         for case in CASES:
-            sources = await search_documents(db, case["question"])
+            hits = await search_chunk_hits(db, case["question"])
             start = time.perf_counter()
-            answer = await answer_with_sources(
+            answer = await answer_with_hits(
                 case["question"],
-                sources,
+                hits,
                 case["language"],
                 model_override=model,
             )

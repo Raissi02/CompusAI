@@ -34,7 +34,14 @@ from app.models import (
     User,
     utc_now,
 )
-from app.rag import answer_with_sources, embed, search_documents
+from app.rag import (
+    ChunkHit,
+    answer_with_hits,
+    embed,
+    ensure_document_chunks,
+    reindex_documents,
+    search_chunk_hits,
+)
 from app.schemas import (
     AppointmentInput,
     ConversationCreate,
@@ -73,7 +80,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Guest-Token"],
 )
 
@@ -331,6 +338,20 @@ def serialize_message(message: Message) -> dict[str, Any]:
         "citations": message.citations or [],
         "created_at": message.created_at,
     }
+
+
+def serialize_citations(hits: list[ChunkHit]) -> list[dict[str, Any]]:
+    return [
+        {
+            "title": hit.document.title,
+            "institution": hit.document.institution,
+            "is_sample": hit.document.is_sample,
+            "source_url": hit.document.source_url or "",
+            "snippet": hit.chunk.content[:280].strip(),
+            "chunk_id": hit.chunk.id,
+        }
+        for hit in hits
+    ]
 
 
 def serialize_appointment(appointment: Appointment) -> dict[str, Any]:
@@ -724,23 +745,15 @@ async def send_guest_message(
         [*guest.memory.get("interests", []), guest.memory.get("current_level", ""), guest.memory.get("goals", "")]
     )
     try:
-        sources = await search_documents(db, f"{payload.content}\n{memory_text}")
-        reply = await answer_with_sources(
+        hits = await search_chunk_hits(db, f"{payload.content}\n{memory_text}")
+        reply = await answer_with_hits(
             payload.content,
-            sources,
+            hits,
             conversation.language,
             memory=guest.memory,
             history=history,
         )
-        citations = [
-            {
-                "title": source.title,
-                "institution": source.institution,
-                "is_sample": source.is_sample,
-                "source_url": source.source_url or "",
-            }
-            for source in sources
-        ]
+        citations = serialize_citations(hits)
     except (httpx.HTTPError, RuntimeError, ValueError) as error:
         logger.exception("Could not produce a grounded guest reply.")
         db.commit()
@@ -833,19 +846,11 @@ async def send_message(
             }
             for message in conversation.messages[-8:]
         ]
-        sources = await search_documents(db, f"{payload.content}\n{memory_text}")
-        reply = await answer_with_sources(
+        sources = await search_chunk_hits(db, f"{payload.content}\n{memory_text}")
+        reply = await answer_with_hits(
             payload.content, sources, conversation.language, memory=memory, history=history
         )
-        citations = [
-            {
-                "title": source.title,
-                "institution": source.institution,
-                "is_sample": source.is_sample,
-                "source_url": source.source_url or "",
-            }
-            for source in sources
-        ]
+        citations = serialize_citations(sources)
     except (httpx.HTTPError, RuntimeError, ValueError) as error:
         logger.exception("Could not produce a grounded assistant reply.")
         db.commit()
@@ -1386,10 +1391,50 @@ def admin_documents(
             "content": document.content,
             "source_url": document.source_url,
             "is_sample": document.is_sample,
+            "chunks": len(document.chunks),
             "updated_at": document.updated_at,
         }
         for document in documents
     ]
+
+
+@app.post("/api/admin/documents/reindex")
+async def reindex_knowledge_documents(
+    db: Db, admin: Annotated[User, Depends(require_roles("admin"))]
+) -> dict[str, Any]:
+    try:
+        result = await reindex_documents(db)
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+        logger.exception("Could not reindex knowledge documents.")
+        raise HTTPException(status_code=502, detail=f"Could not reindex documents: {error}") from error
+    logger.info(
+        "Administrator %s reindexed %s documents into %s chunks.",
+        admin.id,
+        result["documents"],
+        result["chunks"],
+    )
+    return {
+        **result,
+        "note": (
+            "Chunks were rebuilt with the currently configured embedding model. "
+            "Re-index after changing EMBEDDING_MODEL or EMBEDDING_DIMENSIONS."
+        ),
+    }
+
+
+@app.delete("/api/admin/documents/{document_id}")
+def delete_knowledge_document(
+    document_id: int,
+    db: Db,
+    admin: Annotated[User, Depends(require_roles("admin"))],
+) -> dict[str, Any]:
+    document = db.get(KnowledgeDocument, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Knowledge document not found.")
+    db.delete(document)
+    db.commit()
+    logger.info("Administrator %s deleted knowledge document %s.", admin.id, document_id)
+    return {"deleted": document_id}
 
 
 @app.post("/api/admin/documents", status_code=status.HTTP_201_CREATED)
@@ -1409,6 +1454,13 @@ async def add_knowledge_document(
         updated_at=utc_now(),
     )
     db.add(document)
+    db.flush()
+    try:
+        await ensure_document_chunks(db, document)
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+        logger.exception("Could not chunk knowledge document.")
+        db.rollback()
+        raise HTTPException(status_code=502, detail=f"Could not index document: {error}") from error
     db.commit()
     db.refresh(document)
     logger.info("Administrator %s indexed knowledge document %s.", admin.id, document.id)
@@ -1417,6 +1469,7 @@ async def add_knowledge_document(
         "title": document.title,
         "institution": document.institution,
         "is_sample": document.is_sample,
+        "chunks": len(document.chunks),
     }
 
 

@@ -6,7 +6,7 @@ A standalone, demo-ready university-orientation and admissions workflow based on
 
 - Candidate accounts and no-account guest conversations, with guest-session memory, expiry, a per-session message limit, and guest-history linking at sign-in or registration.
 - Candidate profiles, French / Tunisian Arabic / Arabizi language routing, text chat, optional voice-note transcription, and a conversation history.
-- Source-retrieval answers with citations, PostgreSQL/pgvector persistence, a local hashed multilingual-vector fallback, and an optional OpenAI-compatible chat provider.
+- Source-retrieval answers with passage-level citations, PostgreSQL/pgvector persistence, a local hashed multilingual-vector fallback, and an optional OpenAI-compatible chat provider.
 - Programme catalogue and management for IIT and ISB, including tuition, prerequisites, source URLs, sample-data labels, and keyword-overlap comparisons.
 - Consent-gated pre-registration, scoped academic review, interview-team questionnaire summaries, proposed appointment times, and candidate confirmation.
 - Role-aware workspaces for IIT/ISB academic teams, interview coordinators, directors, and administrators.
@@ -73,6 +73,12 @@ uvicorn app.main:app --env-file .env
 Production startup does not create or alter tables automatically. Create future migrations after model changes and review them before applying them. The initial migration creates the schema represented by the application models and enables pgvector.
 
 SQLite is intended for local demos. PostgreSQL uses cosine-distance search through pgvector. Without an embedding key, the app stores deterministic hashed multilingual term and bigram vectors; these are a lightweight retrieval fallback, not a trained semantic embedding model. When an OpenAI-compatible API key is configured, indexed documents and queries use the configured embedding service instead. Configure embedding settings before indexing official documents so stored and query vectors use the same model and dimensions.
+
+## Retrieval
+
+Knowledge documents are split into overlapping passages stored in `document_chunks` (`RAG_CHUNK_SIZE`, default 800 characters; `RAG_CHUNK_OVERLAP`, default 120). Search blends BM25 lexical scores with vector similarity (`RAG_VECTOR_WEIGHT`, default 0.3 without an embedding provider and 0.5 with one), keeps one passage per document, and returns passage-level snippets in each citation. The API serves the best passage to the chat model instead of the whole document.
+
+Re-index after changing `EMBEDDING_MODEL` or `EMBEDDING_DIMENSIONS` by calling `POST /api/admin/documents/reindex` as an administrator. `DELETE /api/admin/documents/{id}` removes a source and its passages. With SQLite the vectors are stored as JSON; PostgreSQL uses a pgvector column.
 
 ## Optional integrations
 

@@ -221,5 +221,29 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("not an academic or model-quality benchmark", evaluation["suite"])
 
 
+    def test_chunk_index_supports_reindex_and_chunk_citations(self):
+        headers = {"Authorization": f"Bearer {self.admin_token}"}
+        reindexed = self.client.post("/api/admin/documents/reindex", headers=headers)
+        self.assertEqual(reindexed.status_code, 200, reindexed.text)
+        body = reindexed.json()
+        self.assertGreaterEqual(body["documents"], 1)
+        self.assertGreater(body["chunks"], body["documents"])
+
+        documents = self.client.get("/api/admin/documents", headers=headers).json()
+        self.assertTrue(all(document["chunks"] > 0 for document in documents))
+
+        guest = self.client.post("/api/guest/sessions").json()
+        sent = self.client.post(
+            f"/api/guest/sessions/{guest['id']}/messages",
+            headers={"X-Guest-Token": guest["token"]},
+            json={"content": "Quels sont les frais du cycle préparatoire à l'IIT ?"},
+        )
+        self.assertEqual(sent.status_code, 201, sent.text)
+        citations = sent.json()["assistant_message"]["citations"]
+        self.assertTrue(citations)
+        self.assertIn("snippet", citations[0])
+        self.assertTrue(citations[0]["snippet"])
+
+
 if __name__ == "__main__":
     unittest.main()
