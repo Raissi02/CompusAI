@@ -34,6 +34,8 @@ _STOPWORDS = {
     "avec",
     "ce",
     "ces",
+    "combien",
+    "comment",
     "dans",
     "de",
     "des",
@@ -43,6 +45,7 @@ _STOPWORDS = {
     "et",
     "for",
     "from",
+    "how",
     "i",
     "il",
     "is",
@@ -57,8 +60,16 @@ _STOPWORDS = {
     "of",
     "on",
     "or",
+    "ou",
+    "où",
     "pour",
+    "pourquoi",
+    "quand",
     "que",
+    "quel",
+    "quelle",
+    "quels",
+    "quelles",
     "qui",
     "the",
     "to",
@@ -66,7 +77,10 @@ _STOPWORDS = {
     "une",
     "w",
     "what",
+    "when",
+    "where",
     "which",
+    "why",
     "with",
     "you",
 }
@@ -264,12 +278,29 @@ async def search_chunk_hits(
         return []
 
     query_terms = set(_content_terms(query))
+    if not query_terms:
+        return []
     corpus = [_terms(chunk.content) for chunk in candidates]
     lexical_scores = _bm25(query_terms, corpus)
     vector_scores = [_cosine(vector, chunk.embedding or []) for chunk in candidates]
 
     vector_weight = float(os.getenv("RAG_VECTOR_WEIGHT", "0.5" if _provider_configured() else "0.3"))
     blended = _blend(vector_scores, lexical_scores, vector_weight)
+    folded_query = query.casefold()
+    institution_hints = {
+        institution
+        for institution in ("IIT", "ISB")
+        if re.search(rf"\b{institution.lower()}\b", folded_query)
+    }
+    if institution_hints:
+        blended = [
+            score * (1.15 if chunk.institution in institution_hints else 0.85)
+            for score, chunk in zip(blended, candidates)
+        ]
+    blended = [
+        score * (1 + 0.08 * min(len(query_terms & set(_terms(chunk.document.title))), 3))
+        for score, chunk in zip(blended, candidates)
+    ]
     order = sorted(range(len(candidates)), key=lambda index: blended[index], reverse=True)
 
     results: list[ChunkHit] = []
@@ -281,8 +312,10 @@ async def search_chunk_hits(
         if chunk.document_id in seen_documents:
             continue
         coverage = _coverage(query_terms, chunk.content)
-        if coverage < MIN_LEXICAL_COVERAGE and vector_scores[index] < MIN_VECTOR_SIMILARITY:
-            continue
+        matched_terms = round(coverage * len(query_terms))
+        if vector_scores[index] < MIN_VECTOR_SIMILARITY:
+            if coverage < MIN_LEXICAL_COVERAGE or matched_terms < min(2, len(query_terms)):
+                continue
         seen_documents.add(chunk.document_id)
         results.append(
             ChunkHit(

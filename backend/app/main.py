@@ -174,7 +174,32 @@ def detect_language(content: str, fallback: str) -> str:
     arabizi_markers = ("chnowa", "chneya", "nheb", "n7eb", "kifech", "ena", "famma")
     if any(marker in folded for marker in arabizi_markers):
         return "Arabizi"
+    tokens = set(re.findall(r"[a-zà-ÿ']+", folded))
+    english_markers = {
+        "what", "which", "how", "does", "do", "is", "are", "the", "can",
+        "requirements", "fees", "apply", "admission", "tuition", "please",
+        "need", "want", "study", "programs", "programmes", "cost", "offer",
+        "hello", "thanks", "deadline", "documents", "scholarship",
+    }
+    french_markers = {
+        "quel", "quelle", "quels", "quelles", "comment", "combien",
+        "pourquoi", "est", "sont", "je", "nous", "vous", "frais",
+        "inscription", "bourse", "bourses", "formation", "études",
+        "etudes", "coût", "cout", "puis", "existe", "merci",
+    }
+    english_score = len(tokens & english_markers)
+    french_score = len(tokens & french_markers)
+    if english_score > french_score:
+        return "en"
+    if french_score > english_score:
+        return "fr"
     return fallback or "fr"
+
+
+def retrieval_query(content: str, memory_text: str) -> str:
+    if len(re.findall(r"\w+", content)) >= 3:
+        return content
+    return f"{content}\n{memory_text}"
 
 
 def extract_profile_hints(profile: CandidateProfile, content: str) -> None:
@@ -745,7 +770,7 @@ async def send_guest_message(
         [*guest.memory.get("interests", []), guest.memory.get("current_level", ""), guest.memory.get("goals", "")]
     )
     try:
-        hits = await search_chunk_hits(db, f"{payload.content}\n{memory_text}")
+        hits = await search_chunk_hits(db, retrieval_query(payload.content, memory_text))
         reply = await answer_with_hits(
             payload.content,
             hits,
@@ -846,7 +871,7 @@ async def send_message(
             }
             for message in conversation.messages[-8:]
         ]
-        sources = await search_chunk_hits(db, f"{payload.content}\n{memory_text}")
+        sources = await search_chunk_hits(db, retrieval_query(payload.content, memory_text))
         reply = await answer_with_hits(
             payload.content, sources, conversation.language, memory=memory, history=history
         )
